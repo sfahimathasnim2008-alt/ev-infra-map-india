@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EV Infra Map India</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f7f8fa;--card:#fff;--tx:#14213d;--mut:#5b6678;--bd:#dde2ea;--ac:#0b6e4f;--t0:#2e8b57;--t1:#e0b100;--t2:#e8751a;--t3:#c62828;--na:#c9ced6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#0f1520;--card:#182131;--tx:#e8edf5;--mut:#9aa6b8;--bd:#2a3649;--ac:#3ddc97;--na:#3a4558}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0f1520;--card:#182131;--tx:#e8edf5;--mut:#9aa6b8;--bd:#2a3649;--ac:#3ddc97;--na:#3a4558}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.w{max-width:980px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:0}h2{font-size:16px;margin:0 0 8px}.sub{color:var(--mut);font-size:13px;margin:2px 0 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px}
+.tabs button,select,input{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:6px 10px}
+.tabs button{white-space:nowrap;cursor:pointer}.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}.ctl label{font-size:12px;color:var(--mut);display:block}.ctl select,.ctl input{width:100%}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px}.kpi div{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 10px}.kpi b{display:block;font-size:19px}.kpi span{font-size:12px;color:var(--mut)}
+.map{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;max-width:560px;margin:0 auto}
+.map button{aspect-ratio:1;border:2px solid transparent;border-radius:6px;font-size:10px;line-height:1.1;padding:1px;cursor:pointer;color:#fff;font-weight:600}
+.map button.sel{border-color:var(--tx)}.map small{display:block;font-weight:400;font-size:9px}
+.lg{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--mut);margin-top:8px}.lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
+.vb{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:4px 12px;cursor:pointer}.vb.on{background:var(--ac);color:#fff;border-color:var(--ac)}.gm path{transition:opacity .15s}.gm path:hover{opacity:.8}
+.sc{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--bd);white-space:nowrap}th:first-child,td:first-child{text-align:left}
+.b{padding:1px 7px;border-radius:99px;color:#fff;font-size:11px}
+.note{font-size:12px;color:var(--mut)}ul{padding-left:18px;margin:6px 0}
+</style></head><body><div class="w">
+<h1>EV Infra Map India</h1>
+<div class="sub">Charging-infrastructure gap platform · state-level prototype · PCS as of 31 Mar 2024</div>
+<div class="card"><div class="ctl">
+<div><label>EV count source</label><select id="src"><option value="ev">Till-date EVs (VAHAN)</option><option value="reg">2020–23 registrations</option></select></div>
+<div><label>EV growth / year (%)</label><input id="g" type="number" value="35" min="0" max="200"></div>
+<div><label>Planning horizon (years)</label><input id="yrs" type="number" value="2" min="0" max="10"></div>
+<div><label>Target EVs per charger</label><input id="tgt" type="number" value="100" min="5" max="1000"></div>
+</div><div class="note" style="margin-top:6px">Growth and target are adjustable planning assumptions, not official norms.</div></div>
+<div class="kpi" id="kpi"></div>
+<div class="tabs" id="tabs"></div>
+<div id="view"></div>
+<div class="note">Source: user-supplied VAHAN/parliamentary CSVs. The two EV totals conflict (e.g. Tamil Nadu 186,932 vs 167,216) and the “till date” is undated, so treat ratios as screening indicators. Telangana, Lakshadweep have no EV counts; missing ≠ zero. Station coordinates are not in the data, so the map shows state-level shading, not individual charger pins. Boundaries: Highcharts Map Collection (© Highsoft AS, Natural Earth), illustrative only.</div>
+</div>
+<script>
+const D=[["Andaman and Nicobar Islands",36,92,23,18,169,160375,186,0.12,3],["Andhra Pradesh",1654,9738,29450,29546,70388,16517516,66500,0.4,327],["Arunachal Pradesh",5,2,2,17,26,299371,25,0.01,9],["Assam",8357,15634,40719,56448,121158,5393542,116605,2.16,86],["Bihar",12447,23082,55751,79469,170749,11728184,155457,1.33,124],["Chandigarh",369,734,2721,5753,9577,843049,7628,0.9,12],["Chhattisgarh",1489,4215,22364,35115,63183,7431353,52813,0.71,149],["Dadra and Nagar Haveli and Daman and Diu",24,29,141,142,336,372133,345,0.09,1],["Delhi",12377,25816,62256,64382,164831,8457200,229305,2.71,1886],["Goa",82,1096,5688,8637,15503,1204110,12139,1.01,113],["Gujarat",1120,9765,68998,83965,163848,22799866,134273,0.59,476],["Haryana",2982,8660,25864,27465,64971,12092054,67812,0.56,377],["Himachal Pradesh",181,327,1008,1003,2519,2145062,2362,0.11,44],["Jammu and Kashmir",74,1146,4689,8823,14732,2048212,10225,0.5,47],["Jharkhand",1516,3741,13682,19096,38035,7056955,35331,0.5,135],["Karnataka",9707,33307,95900,141057,279971,29855843,239948,0.8,5130],["Kerala",1362,8743,39622,69624,119351,16643512,94346,0.57,958],["Ladakh",null,6,40,28,74,43757,65,0.15,null],["Lakshadweep",null,null,null,null,null,null,null,null,1],["Madhya Pradesh",3358,10427,36804,61678,112267,19604968,92388,0.47,341],["Maharashtra",7134,29914,136051,178488,351587,34371551,296885,0.86,3083],["Manipur",104,114,341,386,945,554096,1198,0.22,17],["Meghalaya",3,5,42,110,160,511744,129,0.03,21],["Mizoram",1,1,36,144,182,349287,114,0.03,null],["Nagaland",11,2,3,6,22,414439,60,0.01,6],["Odisha",904,5626,28446,39839,74815,10637750,60097,0.56,198],["Puducherry",88,405,1481,2405,4379,1329787,4421,0.33,23],["Punjab",832,4643,14053,23378,42906,13175075,34162,0.26,158],["Rajasthan",5604,23464,78238,86376,193682,18914170,175595,0.93,500],["Sikkim",null,null,null,null,null,108442,20,0.02,2],["Tamil Nadu",5697,30030,66953,84252,186932,31643747,167216,0.53,643],["Telangana",null,null,null,null,null,null,null,null,483],["Tripura",3421,2434,4179,5799,15833,711282,14379,2.02,18],["Uttar Pradesh",31268,66705,162862,249223,510058,43943230,556629,1.27,583],["Uttarakhand",2395,5324,15561,15330,38610,3626246,48250,1.33,76],["West Bengal",10079,6408,11150,17699,45336,15020616,67111,0.45,318]];
+const S=D.map(r=>({n:r[0],y:r.slice(1,5),reg:r[5],ev:r[7],sh:r[8],pcs:r[9]}));
+const TL=[["Ladakh","LA",4,0],["Jammu and Kashmir","JK",3,1],["Himachal Pradesh","HP",4,1],["Chandigarh","CH",2,2],["Punjab","PB",3,2],["Uttarakhand","UK",5,2],["Haryana","HR",3,3],["Delhi","DL",4,3],["Uttar Pradesh","UP",5,3],["Bihar","BR",6,3],["Sikkim","SK",7,3],["Assam","AS",8,3],["Nagaland","NL",9,3],["Arunachal Pradesh","AR",9,2],["Rajasthan","RJ",2,4],["Madhya Pradesh","MP",4,4],["Jharkhand","JH",6,4],["West Bengal","WB",7,4],["Meghalaya","ML",8,4],["Manipur","MN",9,4],["Gujarat","GJ",1,5],["Maharashtra","MH",3,5],["Chhattisgarh","CG",5,5],["Odisha","OD",6,5],["Tripura","TR",8,5],["Mizoram","MZ",9,5],["Dadra and Nagar Haveli and Daman and Diu","DD",2,6],["Telangana","TG",4,6],["Andhra Pradesh","AP",5,6],["Goa","GA",2,7],["Karnataka","KA",3,7],["Kerala","KL",3,8],["Tamil Nadu","TN",4,8],["Puducherry","PY",5,8],["Lakshadweep","LD",1,8],["Andaman and Nicobar Islands","AN",8,8]];
+const P={src:"ev",g:35,yrs:2,tgt:100,metric:"ratio",sel:"Tamil Nadu",tab:"map",view:"geo"};
+const TC=["var(--t0)","var(--t1)","var(--t2)","var(--t3)"],TN=["Adequate","Watch","High","Critical"];
+const f=n=>n==null?"–":Math.round(n).toLocaleString("en-IN");
+function calc(s){const b=P.src==="ev"?s.ev:s.reg,p=s.pcs;if(b==null||p==null)return{ok:false};
+const proj=b*Math.pow(1+P.g/100,P.yrs),ratio=b/p,req=Math.ceil(proj/P.tgt);
+const t=ratio>3*P.tgt?3:ratio>1.5*P.tgt?2:ratio>P.tgt?1:0;return{ok:true,b,p,proj,ratio,req,gap:Math.max(0,req-p),t}}
+const by=n=>S.find(s=>s.n===n);
+function kpi(){let pcs=0,ev=0,gap=0,crit=0,n=0;S.forEach(s=>{const c=calc(s);if(s.pcs)pcs+=s.pcs;if(c.ok){ev+=c.b;gap+=c.gap;n++;if(c.t===3)crit++}});
+const pc=S.reduce((a,s)=>a+(calc(s).ok?s.pcs:0),0);
+document.getElementById("kpi").innerHTML=[[f(pcs),"public chargers (36 states/UTs)"],[f(ev),"EVs in comparable states"],[f(ev/pc),"national EVs per charger"],[f(gap),"additional chargers needed"],[crit,"states in Critical tier"]].map(a=>`<div><b>${a[0]}</b><span>${a[1]}</span></div>`).join("")}
+function tileColor(s){const c=calc(s);if(P.metric==="ratio")return c.ok?TC[c.t]:"var(--na)";
+const v=P.metric==="pcs"?s.pcs:s.sh;if(v==null)return"var(--na)";const mx=P.metric==="pcs"?5130:2.8;
+const l=Math.round(70-Math.min(1,Math.sqrt(v/mx))*42);return`hsl(210,65%,${l}%)`}
+const G={paths:null,st:"loading",H:600,miss:[]};
+const DDN="Dadra and Nagar Haveli and Daman and Diu";
+const KEY={"in-an":"Andaman and Nicobar Islands","in-ap":"Andhra Pradesh","in-ar":"Arunachal Pradesh","in-as":"Assam","in-br":"Bihar","in-ch":"Chandigarh","in-ct":"Chhattisgarh","in-dd":DDN,"in-dn":DDN,"in-dl":"Delhi","in-ga":"Goa","in-gj":"Gujarat","in-hr":"Haryana","in-hp":"Himachal Pradesh","in-jk":"Jammu and Kashmir","in-jh":"Jharkhand","in-ka":"Karnataka","in-kl":"Kerala","in-la":"Ladakh","in-ld":"Lakshadweep","in-mp":"Madhya Pradesh","in-mh":"Maharashtra","in-mn":"Manipur","in-ml":"Meghalaya","in-mz":"Mizoram","in-nl":"Nagaland","in-or":"Odisha","in-py":"Puducherry","in-pb":"Punjab","in-rj":"Rajasthan","in-sk":"Sikkim","in-tn":"Tamil Nadu","in-tg":"Telangana","in-tr":"Tripura","in-up":"Uttar Pradesh","in-ut":"Uttarakhand","in-wb":"West Bengal"};
+const nz=x=>String(x||"").toLowerCase().replace(/[^a-z]/g,"");
+const AL={orissa:"Odisha",uttaranchal:"Uttarakhand",nctofdelhi:"Delhi",pondicherry:"Puducherry",damananddiu:DDN,dadraandnagarhaveli:DDN,dadaraandnagarhavelli:DDN,dadraandnagarhavelli:DDN,andamanandnicobar:"Andaman and Nicobar Islands",andamanandnicobarislands:"Andaman and Nicobar Islands"};
+function match(p){const k=p["hc-key"];if(KEY[k])return KEY[k];const n=nz(p.name);if(AL[n])return AL[n];const s=S.find(s=>nz(s.n)===n);return s?s.n:null}
+function build(m){if(!m)throw 0;let feats;
+if(m.type==="Topology"){const g=m.objects.default||m.objects[Object.keys(m.objects)[0]],tr=m.transform,sc=tr?tr.scale:[1,1],tl=tr?tr.translate:[0,0];
+const arcs=m.arcs.map(a=>{let x=0,y=0;return a.map(q=>{if(tr){x+=q[0];y+=q[1];return[x*sc[0]+tl[0],y*sc[1]+tl[1]]}return q})});
+const ring=r=>{let o=[];r.forEach(i=>{const a=i<0?arcs[~i].slice().reverse():arcs[i];o=o.concat(o.length?a.slice(1):a)});return o};
+feats=g.geometries.map(q=>({p:q.properties||{},polys:q.type==="Polygon"?[q.arcs.map(ring)]:q.type==="MultiPolygon"?q.arcs.map(pl=>pl.map(ring)):[]}))}
+else feats=m.features.map(f=>({p:f.properties||{},polys:f.geometry.type==="Polygon"?[f.geometry.coordinates]:f.geometry.type==="MultiPolygon"?f.geometry.coordinates:[]}));
+let x0=1e18,x1=-1e18,y0=1e18,y1=-1e18;feats.forEach(f=>f.polys.forEach(pl=>pl.forEach(r=>r.forEach(q=>{x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);y0=Math.min(y0,q[1]);y1=Math.max(y1,q[1])}))));
+const my=n=>{const f=feats.find(f=>match(f.p)===n);if(!f)return null;let s=0,c=0;f.polys.forEach(pl=>pl[0].forEach(q=>{s+=q[1];c++}));return c?s/c:null};
+const a=my("Jammu and Kashmir"),b=my("Kerala"),up=a==null||b==null?true:a>b,k=600/(x1-x0);
+G.H=(y1-y0)*k;const X=q=>((q[0]-x0)*k).toFixed(1),Y=q=>((up?y1-q[1]:q[1]-y0)*k).toFixed(1);
+G.paths=feats.map(f=>{let best=null;f.polys.forEach(pl=>{if(!best||pl[0].length>best.length)best=pl[0]});
+let bx0=1e9,bx1=-1e9,by0=1e9,by1=-1e9;(best||[]).forEach(q=>{const x=+X(q),y=+Y(q);bx0=Math.min(bx0,x);bx1=Math.max(bx1,x);by0=Math.min(by0,y);by1=Math.max(by1,y)});
+return{n:match(f.p),name:f.p.name||"",w:bx1-bx0,cx:(bx0+bx1)/2,cy:(by0+by1)/2,d:f.polys.map(pl=>pl.map(r=>"M"+r.map(q=>X(q)+" "+Y(q)).join("L")+"Z").join("")).join("")}});
+if(G.paths.filter(p=>p.n).length<10)throw 0;
+G.miss=S.filter(s=>!G.paths.some(p=>p.n===s.n)).map(s=>s.n)}
+function loadGeo(){const V=["2.3.2","2.3.1","2.3.0","2.2.0","2.1.0"];let i=0;window.Highcharts=window.Highcharts||{maps:{}};
+(function next(){if(i>=V.length){G.st="fail";draw();return}
+const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/@highcharts/map-collection@"+V[i++]+"/countries/in/in-all.js";
+s.onload=()=>{try{build(window.Highcharts.maps["countries/in/in-all"]);G.st="ok";draw()}catch(e){next()}};s.onerror=next;document.head.appendChild(s)})()}
+function vt(){return`<div style="margin-bottom:8px;display:flex;gap:6px"><button class="vb${P.view==="geo"?" on":""}" onclick="P.view='geo';draw()">Geographic</button><button class="vb${P.view==="tile"?" on":""}" onclick="P.view='tile';draw()">Tile</button></div>`}
+function legend(){return`<div class="lg">${P.metric==="ratio"?TN.map((t,i)=>`<span><i style="background:${TC[i]}"></i>${t}</span>`).join("")+'<span><i style="background:var(--na)"></i>No data</span>':'<span>Darker = higher</span><span><i style="background:var(--na)"></i>No data</span>'}</div>`}
+function metricSel(){const m={ratio:"EVs per charger (tier vs target)",pcs:"Public chargers (count)",share:"EV share of vehicles (%)"};return`<select onchange="P.metric=this.value;draw()">${Object.keys(m).map(k=>`<option value="${k}" ${k===P.metric?"selected":""}>${m[k]}</option>`).join("")}</select>`}
+function detail(){const s=by(P.sel),c=calc(s);const body=c.ok?`<table><tr><td>EVs (selected source)</td><td>${f(c.b)}</td></tr><tr><td>Public chargers</td><td>${f(c.p)}</td></tr><tr><td>EVs per charger</td><td>${f(c.ratio)}</td></tr><tr><td>Projected EVs (+${P.yrs} yr)</td><td>${f(c.proj)}</td></tr><tr><td>Chargers needed at target</td><td>${f(c.req)}</td></tr><tr><td>Estimated gap</td><td><b>${f(c.gap)}</b></td></tr></table><p><span class="b" style="background:${TC[c.t]}">${TN[c.t]}</span></p>`:`<p class="note">Not enough data: ${s.pcs==null?"no charger count":"no EV count"} reported for this state/UT.</p>`;
+return`<div class="card"><h2>${s.n}</h2>${body}</div>`}
+function geoView(){const ps=G.paths.slice().sort((a,b)=>(a.n===P.sel)-(b.n===P.sel));
+const sv=ps.map(p=>{const s=p.n&&by(p.n);return`<path d="${p.d}" fill-rule="evenodd" fill="${s?tileColor(s):"var(--na)"}" stroke="${p.n&&p.n===P.sel?"var(--tx)":"var(--card)"}" stroke-width="${p.n&&p.n===P.sel?2.2:.7}"${p.n?` style="cursor:pointer" onclick="P.sel='${p.n}';draw()"`:""}><title>${p.n||p.name}</title></path>`}).join("");
+const lb=G.paths.filter(p=>p.n&&p.w>34).map(p=>{const t=TL.find(x=>x[0]===p.n);return t?`<text x="${p.cx.toFixed(0)}" y="${p.cy.toFixed(0)}" font-size="10" font-weight="600" text-anchor="middle" fill="var(--tx)" stroke="var(--card)" stroke-width="2.5" paint-order="stroke" pointer-events="none">${t[1]}</text>`:""}).join("");
+return`<div class="card"><h2>National infrastructure map</h2>${vt()}<div style="display:flex;gap:8px;flex-wrap:wrap">${metricSel()}<select onchange="P.sel=this.value;draw()">${S.map(x=>`<option ${x.n===P.sel?"selected":""}>${x.n}</option>`).join("")}</select></div>
+<div class="gm" style="max-width:560px;margin:10px auto 0"><svg viewBox="0 0 600 ${Math.round(G.H)}" width="100%" role="img" aria-label="Map of India shaded by state">${sv}${lb}</svg></div>${legend()}
+${G.miss.length?`<p class="note">Not drawn separately on this base map: ${G.miss.join(", ")}. Use the state menu to view them.</p>`:""}</div>${detail()}`}
+function mapView(){if(P.view==="geo"&&G.st==="ok")return geoView();const note=P.view==="geo"?`<div class="card note">${G.st==="loading"?"Loading geographic map…":"The geographic base map could not be loaded here, so the tile map is shown."}</div>`:"";return note+tileView()}
+function tileView(){const m={ratio:"EVs per charger (tier vs target)",pcs:"Public chargers (count)",share:"EV share of vehicles (%)"};
+let g=TL.map(([n,a,c,r])=>{const s=by(n);const cc=calc(s);const val=P.metric==="ratio"?(cc.ok?Math.round(cc.ratio):"–"):P.metric==="pcs"?f(s.pcs):(s.sh==null?"–":s.sh);
+return`<button class="${n===P.sel?"sel":""}" style="grid-column:${c+1};grid-row:${r+1};background:${tileColor(s)}" onclick="P.sel='${n}';draw()">${a}<small>${val}</small></button>`}).join("");
+const s=by(P.sel),c=calc(s);
+const det=c.ok?`<table><tr><td>EVs (selected source)</td><td>${f(c.b)}</td></tr><tr><td>Public chargers</td><td>${f(c.p)}</td></tr><tr><td>EVs per charger</td><td>${f(c.ratio)}</td></tr><tr><td>Projected EVs (+${P.yrs} yr)</td><td>${f(c.proj)}</td></tr><tr><td>Chargers needed at target</td><td>${f(c.req)}</td></tr><tr><td>Estimated gap</td><td><b>${f(c.gap)}</b></td></tr></table><p><span class="b" style="background:${TC[c.t]}">${TN[c.t]}</span></p>`:`<p class="note">Not enough data: ${s.pcs==null?"no charger count":"no EV count"} reported for this state/UT.</p>`;
+return`<div class="card"><h2>National infrastructure map (state tiles)</h2>${vt()}<select onchange="P.metric=this.value;draw()">${Object.keys(m).map(k=>`<option value="${k}" ${k===P.metric?"selected":""}>${m[k]}</option>`).join("")}</select>
+<div class="map" style="margin-top:10px">${g}</div>
+<div class="lg">${P.metric==="ratio"?TN.map((t,i)=>`<span><i style="background:${TC[i]}"></i>${t}</span>`).join("")+'<span><i style="background:var(--na)"></i>No data</span>':'<span>Darker = higher</span><span><i style="background:var(--na)"></i>No data</span>'}</div></div>
+<div class="card"><h2>${s.n}</h2>${det}</div>`}
+function estView(){const rows=S.map(s=>({s,c:calc(s)})).sort((a,b)=>(b.c.ok?b.c.gap:-1)-(a.c.ok?a.c.gap:-1));
+return`<div class="card"><h2>Charger requirement &amp; recommendation module</h2><p class="note">Required chargers = projected EVs ÷ target EVs per charger. Gap = required − existing. Tier compares today’s EVs per charger with the target (Watch &gt;1×, High &gt;1.5×, Critical &gt;3×).</p><div class="sc"><table><tr><th>State/UT</th><th>EVs</th><th>Chargers</th><th>EVs/charger</th><th>Needed</th><th>Gap</th><th>Tier</th></tr>${rows.map(({s,c})=>c.ok?`<tr><td>${s.n}</td><td>${f(c.b)}</td><td>${f(c.p)}</td><td>${f(c.ratio)}</td><td>${f(c.req)}</td><td><b>${f(c.gap)}</b></td><td><span class="b" style="background:${TC[c.t]}">${TN[c.t]}</span></td></tr>`:`<tr><td>${s.n}</td><td colspan="6" class="note">insufficient data</td></tr>`).join("")}</table></div></div>
+<div class="card"><h2>Recommendations</h2><ul>${rows.filter(r=>r.c.ok&&r.c.gap>0).slice(0,5).map(({s,c})=>`<li><b>${s.n}</b>: add about ${f(c.gap)} chargers (${TN[c.t]}); today ${f(c.ratio)} EVs per charger.</li>`).join("")}</ul><p class="note">Next refinement: split by city/corridor once station coordinates and charger capacity are added.</p></div>`}
+function trendView(){const s=by(P.sel),ys=[2020,2021,2022,2023],v=s.y;const mx=Math.max(...v.filter(x=>x!=null),1);
+const X=i=>40+i*80,Y=x=>130-x/mx*110;let pts=v.map((x,i)=>x==null?null:[X(i),Y(x)]);
+const path=pts.filter(Boolean).map((p,i)=>(i?"L":"M")+p[0]+" "+p[1]).join(" ");
+return`<div class="card"><h2>EV registrations 2020–2023</h2><select onchange="P.sel=this.value;draw()">${S.map(x=>`<option ${x.n===P.sel?"selected":""}>${x.n}</option>`).join("")}</select>
+<svg viewBox="0 0 320 160" width="100%" role="img" aria-label="Annual EV registrations"><path d="${path}" fill="none" stroke="var(--ac)" stroke-width="2.5"/>${pts.map((p,i)=>p?`<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="var(--ac)"/><text x="${p[0]}" y="${p[1]-8}" font-size="9" text-anchor="middle" fill="var(--tx)">${f(v[i])}</text>`:"").join("")}${ys.map((y,i)=>`<text x="${X(i)}" y="150" font-size="10" text-anchor="middle" fill="var(--mut)">${y}</text>`).join("")}</svg>
+<p class="note">Missing years are shown as gaps, not zero. Annual figures are the source’s registrations per year.</p></div>`}
+function roadView(){return`<div class="card"><h2>Scalability roadmap</h2><ul>
+<li><b>Phase 1 · Pilot (now):</b> Tamil Nadu and all-India state tiles on supplied VAHAN/PCS data; validate definitions and dates.</li>
+<li><b>Phase 2 · Multi-state:</b> add station coordinates (Bureau of Energy Efficiency / open charger datasets) for a true point map and distance-to-nearest-charger gaps.</li>
+<li><b>Phase 3 · Corridors and cities:</b> overlay national highways, urban population, electricity grid and tourism data; district- and corridor-level requirement estimates.</li>
+<li><b>Phase 4 · National platform:</b> scheduled data refresh, charger capacity and utilisation, scenario planning and a public API for planners and operators.</li></ul>
+<p class="note">Architecture is data-driven: new states or datasets are added as rows/columns, and the estimator recomputes automatically.</p></div>`}
+const TABS=[["map","Map & gaps"],["est","Charger estimator"],["trend","Trends"],["road","Roadmap"]];
+function draw(){kpi();document.getElementById("tabs").innerHTML=TABS.map(t=>`<button class="${t[0]===P.tab?"on":""}" onclick="P.tab='${t[0]}';draw()">${t[1]}</button>`).join("");
+document.getElementById("view").innerHTML={map:mapView,est:estView,trend:trendView,road:roadView}[P.tab]()}
+[["src","src"],["g","g"],["yrs","yrs"],["tgt","tgt"]].forEach(([id,k])=>document.getElementById(id).oninput=e=>{P[k]=k==="src"?e.target.value:+e.target.value||0;draw()});
+draw();loadGeo();
+</script></body></html>

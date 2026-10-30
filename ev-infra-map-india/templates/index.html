@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EV Infra Map India</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z" fill="currentColor"/></svg>
+      <div>
+        <h1>EV Infra Map India</h1>
+        <p>Charging infrastructure and EV adoption</p>
+      </div>
+    </div>
+    <label class="scope">
+      <span>Region</span>
+      <select id="state-select" aria-label="Region">
+        <option value="All India" {% if state == 'All India' %}selected{% endif %}>All India</option>
+        {% for s in states %}<option value="{{ s }}" {% if state == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab active" role="tab" data-tab="overview">Overview</button>
+    <button class="tab" role="tab" data-tab="states">States</button>
+    <button class="tab" role="tab" data-tab="districts">Districts</button>
+    <button class="tab" role="tab" data-tab="data">Data &amp; import</button>
+    <button class="tab" role="tab" data-tab="method">Methodology</button>
+  </nav>
+</header>
+
+<main class="page">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}<div class="flash {{ category }}" role="status">{{ message }}</div>{% endfor %}
+  {% endwith %}
+
+  <!-- ============================== OVERVIEW ============================== -->
+  <section class="panel active" id="tab-overview">
+    <div class="kpis" id="kpis">
+      <article class="kpi"><span class="kpi-label">Stations mapped</span><strong id="kpi-stations">—</strong><small id="kpi-stations-sub">Distinct sites with coordinates</small></article>
+      <article class="kpi"><span class="kpi-label">Connectors</span><strong id="kpi-connectors">—</strong><small>One record per connector in the source</small></article>
+      <article class="kpi"><span class="kpi-label">Operators</span><strong id="kpi-operators">—</strong><small id="kpi-operators-sub">Distinct network operators</small></article>
+      <article class="kpi"><span class="kpi-label">Rapid sites (&gt;30 kW)</span><strong id="kpi-rapid">—</strong><small id="kpi-rapid-sub">Share of stations shown</small></article>
+    </div>
+
+    <div class="workspace">
+      <aside class="card filters" aria-label="Filters">
+        <div class="card-head"><h2>Filters</h2><button class="link-btn" id="reset-filters" type="button">Reset</button></div>
+        <label class="field"><span>Search</span><input type="search" id="f-search" placeholder="Station name or city"></label>
+        <label class="field"><span>Operator</span><select id="f-operator"><option value="">All operators</option></select></label>
+        <label class="field"><span>Connector type</span><select id="f-connector"><option value="">All connector types</option></select></label>
+        <label class="field"><span>Access</span><select id="f-usage"><option value="">All access types</option></select></label>
+        <fieldset class="field">
+          <legend>Charging speed</legend>
+          <div class="chips" id="f-power">
+            <button type="button" class="chip on" data-band="slow"><i class="sw slow"></i>Slow &lt;10 kW</button>
+            <button type="button" class="chip on" data-band="fast"><i class="sw fast"></i>Fast 10–30 kW</button>
+            <button type="button" class="chip on" data-band="rapid"><i class="sw rapid"></i>Rapid &gt;30 kW</button>
+            <button type="button" class="chip on" data-band="unknown"><i class="sw unknown"></i>Power not supplied</button>
+          </div>
+        </fieldset>
+        <div class="charts" id="charts"></div>
+      </aside>
+
+      <section class="card map-card">
+        <div class="card-head">
+          <div><h2>Charging stations</h2><p id="map-summary" class="muted">Loading…</p></div>
+        </div>
+        <div id="station-map" role="application" aria-label="Map of charging stations"></div>
+        <p id="map-message" class="muted small"></p>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card-head">
+        <div><h2>Station list</h2><p class="muted" id="table-summary"></p></div>
+        <button class="btn secondary" id="export-stations" type="button">Export filtered CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data" id="station-table">
+          <thead><tr><th>Station</th><th>Operator</th><th>City</th><th>State</th><th>Connector types</th><th class="num">Max kW</th><th class="num">Connectors</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="pager"><button class="btn secondary" id="prev-page" type="button">Previous</button><span id="page-label" class="muted small"></span><button class="btn secondary" id="next-page" type="button">Next</button></div>
+    </section>
+  </section>
+
+  <!-- ============================== STATES ============================== -->
+  <section class="panel" id="tab-states">
+    <section class="card">
+      <div class="card-head"><div><h2>State comparison</h2><p class="muted">Figures come from different sources and dates. Each value is shown with its own date; they should not be divided by one another.</p></div></div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr>
+            <th>State / UT</th><th class="num">Stations mapped</th><th class="num">Connectors mapped</th>
+            <th class="num">Operational public charging stations (BEE)</th><th>Registered EVs (state total)</th><th class="num">Districts with EV count</th>
+          </tr></thead>
+          <tbody>
+          {% for r in state_overview %}
+            <tr data-state="{{ r.state }}">
+              <td><strong>{{ r.state }}</strong></td>
+              <td class="num">{{ r.stations_mapped|inr if r.stations_mapped else '—' }}</td>
+              <td class="num">{{ r.connectors_mapped|inr if r.connectors_mapped else '—' }}</td>
+              <td class="num">{{ r.operational_pcs|inr }}</td>
+              <td>
+                {% if r.ev_totals %}
+                  {% for t in r.ev_totals %}<div class="ev-line" title="{{ t.source }} — {{ t.definition }}"><strong>{{ t.ev_count|inr }}</strong> <span class="muted small">{{ t.data_date }}</span></div>{% endfor %}
+                {% else %}<span class="na">Data unavailable</span>{% endif %}
+              </td>
+              <td class="num">{% if r.districts_total %}{{ r.districts_with_count }} of {{ r.districts_total }}{% else %}—{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <ul class="notes">
+        <li><strong>Stations mapped</strong> are distinct sites in the imported station file, which is a sample and not a complete national census.</li>
+        <li><strong>Operational public charging stations</strong> is the state-wise table supplied with the project; its reporting date is not recorded in the file.</li>
+        <li><strong>Registered EVs</strong> are state totals from MoRTH e-Vahan (via PIB, 3 Aug 2023) and the Tamil Nadu Transport Department policy note (FY 2025-26, as reported by the press). Hover over a value for its source.</li>
+      </ul>
+    </section>
+  </section>
+
+  <!-- ============================== DISTRICTS ============================== -->
+  <section class="panel" id="tab-districts">
+    <section class="card">
+      <div class="card-head">
+        <div><h2>District EV registrations</h2>
+        <p class="muted">{{ n_district_counts }} of {{ n_districts }} districts have a verified cumulative EV count. Unverified districts are shown as unavailable, not zero.</p></div>
+        <a class="btn secondary" href="/download/ev-districts?state={{ state }}">Download state,district,ev_count CSV</a>
+      </div>
+      {% if n_district_counts == 0 %}
+      <div class="callout">
+        <strong>No district counts loaded yet.</strong>
+        District-level cumulative EV counts are not published as a static table. VAHAN reports by RTO, and no official RTO-to-district mapping was found. When you have verified counts, fill in the <code>ev_count</code> column and upload it under <em>Data &amp; import</em>; this table and the planning calculation will populate automatically.
+      </div>
+      {% endif %}
+      <div class="toolbar">
+        <label class="field inline"><span>Search district</span><input type="search" id="d-search" placeholder="e.g. Madurai"></label>
+        <label class="field inline"><span>Show</span><select id="d-filter"><option value="all">All districts</option><option value="available">With EV count</option><option value="unavailable">Count unavailable</option></select></label>
+        {% if n_district_counts > 0 %}
+        <label class="field inline"><span>EVs per charging unit</span><input type="number" id="target-ratio" min="1" max="10000" value="100"></label>
+        <label class="field inline"><span>Distance threshold (km)</span><input type="number" id="radius-km" min="1" max="500" value="10"></label>
+        <button class="btn" id="recalc" type="button">Recalculate</button>
+        {% endif %}
+      </div>
+      <div class="table-wrap tall">
+        <table class="data" id="district-table">
+          <thead><tr><th>District</th><th>State</th><th class="num">Cumulative EVs</th><th class="num">Stations (district recorded)</th><th class="num">Est. extra units</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="small muted">Stations are matched to districts only where the source records a district. The imported station file has no district column, so district station counts stay at zero until district data is supplied. Zero here means “not recorded”, not “no station exists”.</p>
+    </section>
+  </section>
+
+  <!-- ============================== DATA ============================== -->
+  <section class="panel" id="tab-data">
+    <div class="grid-two">
+      <section class="card">
+        <h2>Import charging stations</h2>
+        <p class="muted">Accepts the project template or a station export with Station Name, City, State, Latitude, Longitude, Operator, Usage Type, Connector Type and Power (kW). District is optional. Rows for the same site are merged into one station.</p>
+        <a class="link" href="/download-template/stations">Download station template</a>
+        <form class="upload" action="/upload" method="post" enctype="multipart/form-data">
+          <input type="hidden" name="dataset" value="stations">
+          <input type="file" name="file" accept=".csv" required>
+          <button class="btn" type="submit">Upload stations</button>
+        </form>
+      </section>
+      <section class="card">
+        <h2>Import district EV counts</h2>
+        <p class="muted">Columns: <code>state, district, ev_count</code> (optional: data_date, source, latitude, longitude). Leave <code>ev_count</code> blank when a count is unverified; blanks are stored as unavailable, never as zero.</p>
+        <a class="link" href="/download-template/ev">Download EV template</a>
+        <form class="upload" action="/upload" method="post" enctype="multipart/form-data">
+          <input type="hidden" name="dataset" value="ev">
+          <input type="file" name="file" accept=".csv" required>
+          <button class="btn" type="submit">Upload EV counts</button>
+        </form>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card-head"><div><h2>Import history</h2><p class="muted">Most recent imports, including rows skipped and names corrected.</p></div></div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Dataset</th><th>File</th><th class="num">Saved</th><th class="num">Skipped</th><th>Notes</th><th>When (UTC)</th></tr></thead>
+          <tbody>
+          {% for i in imports %}
+            <tr>
+              <td>{{ i.dataset }}</td><td>{{ i.filename }}</td><td class="num">{{ i.imported_rows }}</td><td class="num">{{ i.skipped_rows }}</td>
+              <td class="small">
+                {% if i.notes.state_names_corrected %}{{ i.notes.state_names_corrected }} state name(s) corrected. {% endif %}
+                {% if i.notes.skipped_reasons %}{% for reason, n in i.notes.skipped_reasons.items() %}{{ n }} skipped: {{ reason }}. {% endfor %}{% endif %}
+                {% if i.notes.district_not_recorded %}District not recorded for {{ i.notes.district_not_recorded }} station(s). {% endif %}
+                {% if i.notes.count_unavailable %}{{ i.notes.count_unavailable }} count(s) unavailable. {% endif %}
+              </td>
+              <td class="small">{{ i.imported_at[:16]|replace('T', ' ') }}</td>
+            </tr>
+          {% else %}<tr><td colspan="6" class="muted">No imports yet.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Reference sources</h2>
+      <ul class="notes">
+        <li><a href="https://www.analytics.parivahan.gov.in/analytics/publicdashboard/vahan?lang=en" target="_blank" rel="noopener">VAHAN public dashboard</a> — vehicle registrations by state and RTO.</li>
+        <li><a href="https://www.beeindia.gov.in/show_content.php?lang=1&amp;level=2&amp;lid=67&amp;ls_id=345" target="_blank" rel="noopener">Bureau of Energy Efficiency</a> — public charging station data.</li>
+        <li><a href="https://tnev.tn.gov.in/ev-chargers/find-charger" target="_blank" rel="noopener">Tamil Nadu charger finder</a> — official state charger map.</li>
+        <li><a href="https://www.pib.gov.in/PressReleasePage.aspx?PRID=1947389" target="_blank" rel="noopener">PIB release</a> — state-wise registered EVs as on 3 Aug 2023.</li>
+      </ul>
+    </section>
+  </section>
+
+  <!-- ============================== METHODOLOGY ============================== -->
+  <section class="panel" id="tab-method">
+    <section class="card prose">
+      <h2>Methodology and limitations</h2>
+      <h3>Data handling</h3>
+      <p>Station records, EV registrations and state charging totals are stored separately. Nothing is estimated: a missing value stays empty and is displayed as unavailable. District is never inferred from a city name or coordinates.</p>
+      <h3>Station records</h3>
+      <p>Source rows list one connector each. Rows with the same state, name and coordinates are merged into a single station; the number of rows becomes the connector count and the highest listed power is kept. State names with obvious typos or spacing (for example “Keral”) are corrected to the official name and the count of corrections is logged. Rows without a recognisable state or valid India coordinates are skipped and reported.</p>
+      <h3>Planning calculation</h3>
+      <p>Target units = ceiling(EV count ÷ EVs per charging unit). Estimated extra units = max(0, target − existing units in the district). It is calculated only for districts with a verified EV count. The default ratio of 100 is a demonstration assumption, not an official standard.</p>
+      <h3>Interpretation</h3>
+      <p>Results are screening aids, not site recommendations. Validate station status, connector counts, land, grid capacity and road access locally before any decision. The mapped stations are a sample, so absence of a marker does not mean absence of a station.</p>
+    </section>
+  </section>
+</main>
+
+<footer class="foot">EV Infra Map India · Verify dataset definitions, dates and licensing before public use.</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
+<script>window.EV_CONFIG = {state: {{ state|tojson }}};</script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
